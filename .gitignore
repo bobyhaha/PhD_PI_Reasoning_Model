@@ -1,0 +1,14 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Large downloaded/generated artifacts.
+data/
+downloads/
+runs/
+*.pt
+*.pth
+*.ckpt
+
+# Local plots and scratch outputs.
+comparison.png
