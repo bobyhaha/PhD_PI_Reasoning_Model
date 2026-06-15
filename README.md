@@ -66,6 +66,34 @@ Plot:
 python plot_results.py --runs_dir runs
 ```
 
+Modal 2x H200 run:
+```bash
+pip install modal
+modal setup
+modal run modal_experiment.py --target-params 500000 --epochs 30 --run-name full_meta_compare_500k
+```
+
+The Modal launcher requests `H200:2`, splits the model list across the two
+GPUs, parameter-matches every model to the target size, and saves results in
+the Modal Volume `phd-pi-reasoning-results` under:
+```text
+/results/full_meta_compare_500k
+```
+
+Download results locally:
+```bash
+modal volume get phd-pi-reasoning-results full_meta_compare_500k ./modal_results/full_meta_compare_500k
+```
+
+Run only the most important LoRA comparison:
+```bash
+modal run modal_experiment.py \
+  --target-params 500000 \
+  --epochs 30 \
+  --run-name trm_lora_compare_500k \
+  --models trm,trm_v1,trm_v2,trm_v3
+```
+
 EqR/HRM-style `.npy` puzzle datasets can be used with token-level models by setting:
 ```yaml
 task:

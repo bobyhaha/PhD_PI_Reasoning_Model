@@ -1,0 +1,231 @@
+[
+  {
+    "model_type": "trm_v1",
+    "target_params": 500000,
+    "n_params": 477563,
+    "d_model": 136,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/trm_v1_477563",
+    "final_metrics": {
+      "val_loss": 3.336431339263916,
+      "mean_gate": 0.0,
+      "val_acc": 0.0855,
+      "polar_usage": 0.6958557143807411,
+      "epoch": 29,
+      "n_params": 477563,
+      "model_type": "trm_v1"
+    }
+  },
+  {
+    "model_type": "trm_v2",
+    "target_params": 500000,
+    "n_params": 512945,
+    "d_model": 128,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/trm_v2_512945",
+    "final_metrics": {
+      "val_loss": 2.8409618186950683,
+      "mean_gate": 0.0,
+      "val_acc": 0.0835,
+      "lora_delta_norm": 0.0010909177290159278,
+      "epoch": 29,
+      "n_params": 512945,
+      "model_type": "trm_v2"
+    }
+  },
+  {
+    "model_type": "trm_v3",
+    "target_params": 500000,
+    "n_params": 517857,
+    "d_model": 128,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/trm_v3_517857",
+    "final_metrics": {
+      "val_loss": 3.4798666858673095,
+      "mean_gate": 0.0,
+      "val_acc": 0.0785,
+      "polar_usage": 0.832611083984375,
+      "lora_delta_norm": 0.0006756841685273685,
+      "epoch": 29,
+      "n_params": 517857,
+      "model_type": "trm_v3"
+    }
+  },
+  {
+    "model_type": "trm_v3",
+    "target_params": 500000,
+    "n_params": 517857,
+    "d_model": 128,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/trm_v3_517857",
+    "final_metrics": {
+      "val_loss": 3.5428831348419187,
+      "mean_gate": 0.0,
+      "val_acc": 0.0745,
+      "polar_usage": 0.8576416037976742,
+      "lora_delta_norm": 0.0006449836255342234,
+      "epoch": 29,
+      "n_params": 517857,
+      "model_type": "trm_v3"
+    }
+  },
+  {
+    "model_type": "hrm_v1",
+    "target_params": 500000,
+    "n_params": 477489,
+    "d_model": 136,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/hrm_v1_477489",
+    "final_metrics": {
+      "val_loss": 3.16419348526001,
+      "mean_gate": 0.0,
+      "val_acc": 0.0785,
+      "polar_usage": 0.9686621241271496,
+      "epoch": 29,
+      "n_params": 477489,
+      "model_type": "hrm_v1"
+    }
+  },
+  {
+    "model_type": "hrm_v2",
+    "target_params": 500000,
+    "n_params": 521809,
+    "d_model": 128,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/hrm_v2_521809",
+    "final_metrics": {
+      "val_loss": 3.435085464477539,
+      "mean_gate": 0.0,
+      "val_acc": 0.078,
+      "lora_delta_norm": 0.001946802447491791,
+      "epoch": 29,
+      "n_params": 521809,
+      "model_type": "hrm_v2"
+    }
+  },
+  {
+    "model_type": "hrm_v3",
+    "target_params": 500000,
+    "n_params": 526523,
+    "d_model": 128,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/hrm_v3_526523",
+    "final_metrics": {
+      "val_loss": 3.5320446586608885,
+      "mean_gate": 0.0,
+      "val_acc": 0.081,
+      "polar_usage": 0.9999511726200581,
+      "lora_delta_norm": 0.002422689474769868,
+      "epoch": 29,
+      "n_params": 526523,
+      "model_type": "hrm_v3"
+    }
+  },
+  {
+    "model_type": "hrm_v3",
+    "target_params": 500000,
+    "n_params": 526523,
+    "d_model": 128,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/hrm_v3_526523",
+    "final_metrics": {
+      "val_loss": 3.5384601573944092,
+      "mean_gate": 0.0,
+      "val_acc": 0.0815,
+      "polar_usage": 0.9940722808241844,
+      "lora_delta_norm": 0.0024009557819226757,
+      "epoch": 29,
+      "n_params": 526523,
+      "model_type": "hrm_v3"
+    }
+  },
+  {
+    "model_type": "lg_prm_v1",
+    "target_params": 500000,
+    "n_params": 532274,
+    "d_model": 96,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/lg_prm_v1_532274",
+    "final_metrics": {
+      "val_loss": 2.8144858360290526,
+      "mean_gate": 3.4337863326072693e-06,
+      "val_acc": 0.0825,
+      "mean_hard_gate": 0.0,
+      "library_entropy": 0.0,
+      "polar_usage": 0.46737060509622097,
+      "epoch": 29,
+      "n_params": 532274,
+      "model_type": "lg_prm_v1"
+    }
+  },
+  {
+    "model_type": "lg_prm_v2",
+    "target_params": 500000,
+    "n_params": 512914,
+    "d_model": 88,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/lg_prm_v2_512914",
+    "final_metrics": {
+      "val_loss": 2.810871089935303,
+      "mean_gate": 1.2731179594993591e-06,
+      "val_acc": 0.0935,
+      "mean_hard_gate": 0.0,
+      "library_entropy": 0.0,
+      "lora_delta_norm": 0.0022813934338046238,
+      "epoch": 29,
+      "n_params": 512914,
+      "model_type": "lg_prm_v2"
+    }
+  },
+  {
+    "model_type": "lg_prm_v2",
+    "target_params": 500000,
+    "n_params": 512914,
+    "d_model": 88,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/lg_prm_v2_512914",
+    "final_metrics": {
+      "val_loss": 2.8098964824676513,
+      "mean_gate": 4.196539521217346e-06,
+      "val_acc": 0.0955,
+      "mean_hard_gate": 0.0,
+      "library_entropy": 0.0,
+      "lora_delta_norm": 0.003330149978864938,
+      "epoch": 29,
+      "n_params": 512914,
+      "model_type": "lg_prm_v2"
+    }
+  },
+  {
+    "model_type": "lg_prm_v3",
+    "target_params": 500000,
+    "n_params": 515232,
+    "d_model": 88,
+    "n_heads": 4,
+    "epochs": 30,
+    "out_dir": "/results/full_meta_compare_500k/runs/lg_prm_v3_515232",
+    "final_metrics": {
+      "val_loss": 2.8221572265625,
+      "mean_gate": 4.751607775688171e-06,
+      "val_acc": 0.0845,
+      "mean_hard_gate": 0.0,
+      "library_entropy": 0.0,
+      "polar_usage": 0.5374877937138081,
+      "lora_delta_norm": 0.000360128617103328,
+      "epoch": 29,
+      "n_params": 515232,
+      "model_type": "lg_prm_v3"
+    }
+  }
+]

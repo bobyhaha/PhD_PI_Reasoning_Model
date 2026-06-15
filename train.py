@@ -118,9 +118,15 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
     json.dump({'model': asdict(model_cfg), 'task': asdict(task_cfg), 'train': train_cfg, 'n_params': n_params}, open(os.path.join(out_dir, 'config_resolved.json'), 'w'), indent=2)
     metrics_path = os.path.join(out_dir, 'metrics.jsonl')
     print(f'model={model_cfg.model_type} params={n_params:,} device={device}')
+    global_step = 0
+    max_steps = train_cfg.get('max_steps')
+    eval_interval_steps = train_cfg.get('eval_interval_steps')
+    last_metrics = None
     for epoch in range(train_cfg.get('epochs', 10)):
         model.train(); pbar = tqdm(train_loader, desc=f'{model_cfg.model_type} epoch {epoch}')
         for x, y in pbar:
+            if max_steps is not None and global_step >= max_steps:
+                break
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
             with autocast_context(device, train_cfg):
                 out = model(x)
@@ -144,9 +150,26 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
             torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.get('grad_clip', 1.0))
             scaler.step(opt)
             scaler.update()
+            global_step += 1
             pbar.set_postfix({'loss': f'{loss.item():.3f}', 'task': f'{task_loss.item():.3f}', 'gate': f'{gate_cost.item():.3f}', 'div': f'{div.item():.3f}'})
-        metrics = evaluate(model, val_loader, device, train_cfg)
-        metrics.update({'epoch': epoch, 'n_params': n_params, 'model_type': model_cfg.model_type})
+            if eval_interval_steps and global_step % eval_interval_steps == 0:
+                metrics = evaluate(model, val_loader, device, train_cfg)
+                metrics.update({'epoch': epoch, 'step': global_step, 'n_params': n_params, 'model_type': model_cfg.model_type})
+                print(metrics)
+                with open(metrics_path, 'a') as f: f.write(json.dumps(metrics) + '\n')
+                last_metrics = metrics
+                model.train()
+        if max_steps is not None and global_step >= max_steps:
+            break
+        if not eval_interval_steps:
+            metrics = evaluate(model, val_loader, device, train_cfg)
+            metrics.update({'epoch': epoch, 'step': global_step, 'n_params': n_params, 'model_type': model_cfg.model_type})
+            print(metrics)
+            with open(metrics_path, 'a') as f: f.write(json.dumps(metrics) + '\n')
+            last_metrics = metrics
+    metrics = evaluate(model, val_loader, device, train_cfg)
+    metrics.update({'epoch': epoch, 'step': global_step, 'n_params': n_params, 'model_type': model_cfg.model_type})
+    if last_metrics is None or last_metrics.get('step') != global_step:
         print(metrics)
         with open(metrics_path, 'a') as f: f.write(json.dumps(metrics) + '\n')
     model_to_save = model._orig_mod if hasattr(model, '_orig_mod') else model
