@@ -44,6 +44,8 @@ def evaluate(model, loader, device, train_cfg=None):
     total = correct = token_total = token_correct = exact_total = exact_correct = 0
     loss_sum = gate_sum = hard_gate_sum = entropy_sum = 0.0
     gate_count = hard_gate_count = entropy_count = 0
+    polar_sum = polar_count = 0
+    lora_sum = lora_count = 0
     for x, y in loader:
         x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
         with autocast_context(device, train_cfg):
@@ -69,6 +71,10 @@ def evaluate(model, loader, device, train_cfg=None):
             hard_gate_sum += out['gate_hard'].mean().item(); hard_gate_count += 1
         if 'library_entropy' in out:
             entropy_sum += out['library_entropy'].item(); entropy_count += 1
+        if 'polar_usage' in out:
+            polar_sum += out['polar_usage'].item(); polar_count += 1
+        if 'lora_delta_norm' in out:
+            lora_sum += out['lora_delta_norm'].item(); lora_count += 1
     denom = total if total else token_total
     metrics = {'val_loss': loss_sum / max(1, denom), 'mean_gate': gate_sum / max(1, gate_count)}
     if total:
@@ -80,6 +86,10 @@ def evaluate(model, loader, device, train_cfg=None):
         metrics['mean_hard_gate'] = hard_gate_sum / hard_gate_count
     if entropy_count:
         metrics['library_entropy'] = entropy_sum / entropy_count
+    if polar_count:
+        metrics['polar_usage'] = polar_sum / polar_count
+    if lora_count:
+        metrics['lora_delta_norm'] = lora_sum / lora_count
     return metrics
 
 def train_from_config(model_cfg, task_cfg, train_cfg):
@@ -120,10 +130,14 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
                 if 'gate_probs' in out:
                     gate_cost = out['gate_probs'].mean(); loss = loss + train_cfg.get('retrieval_cost', 0.0) * gate_cost
                 div = torch.tensor(0.0, device=device)
-                if model_cfg.model_type == 'lg_prm' and model_cfg.use_diversity_loss and 'proposals' in out:
+                if model_cfg.model_type.startswith(('lg_prm', 'lgp')) and model_cfg.use_diversity_loss and 'proposals' in out:
                     div = diversity_loss(out['proposals']); loss = loss + train_cfg.get('diversity_weight', 0.0) * div
                 if 'library_entropy' in out:
                     loss = loss - train_cfg.get('entropy_weight', 0.0) * out['library_entropy']
+                if 'polar_usage' in out:
+                    loss = loss + train_cfg.get('polar_weight', 0.0) * out['polar_usage']
+                if 'lora_delta_norm' in out:
+                    loss = loss + train_cfg.get('lora_delta_weight', 0.0) * out['lora_delta_norm']
             opt.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.unscale_(opt)

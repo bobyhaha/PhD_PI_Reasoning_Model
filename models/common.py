@@ -33,6 +33,9 @@ class ModelConfig:
     gate_threshold: float = 0.5
     straight_through_gate: bool = True
     use_diversity_loss: bool = True
+    # Meta-model hyper-params (V1 / V2 / V3 variants)
+    lora_rank: int = 2
+    meta_d_code: int = 32
 
 class TokenEncoder(nn.Module):
     def __init__(self, cfg):

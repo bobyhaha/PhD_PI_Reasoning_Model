@@ -6,6 +6,30 @@ Compares same-parameter versions of:
 - `trm`: EqR-style single recurrent token-latent core
 - `lg_prm`: your library-gated PI-PhD model with separate RAG and MLP libraries
 
+Meta-model variants are available for HRM, TRM, and LG-PRM:
+- V1 / PoLar-style program-of-layers: `hrm_v1`, `trm_v1`, `lg_prm_v1`
+- V2 / per-loop LoRA hypernetwork: `hrm_v2`, `trm_v2`, `lg_prm_v2`
+- V3 / combined PoLar + LoRA: `hrm_v3`, `trm_v3`, `lg_prm_v3`
+
+The V1 controller predicts input-specific keep/skip gates for recurrent layer
+slots, inspired by PoLar's program-of-layers view. The V2 controller predicts
+low-rank LoRA deltas per reasoning loop from the input and current state. V3
+uses both: the program decides which layer slots execute, and the hypernetwork
+decides how executed slots are adapted.
+
+Training objective for meta variants:
+```text
+loss = prediction_loss
+     + retrieval_cost * library_gate_usage
+     + diversity_weight * explorer_diversity
+     - entropy_weight * library_entropy
+     + polar_weight * polar_usage
+     + lora_delta_weight * lora_delta_norm
+```
+`prediction_loss` is the primary objective. `polar_weight` optionally encourages
+shorter programs, while `lora_delta_weight` keeps generated adapters small unless
+the task loss rewards using them.
+
 Install:
 ```bash
 pip install torch numpy tqdm pyyaml matplotlib

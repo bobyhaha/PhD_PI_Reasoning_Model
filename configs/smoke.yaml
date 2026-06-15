@@ -27,6 +27,8 @@ model:
   gate_threshold: 0.5
   straight_through_gate: true
   use_diversity_loss: true
+  lora_rank: 2
+  meta_d_code: 8
 task:
   task_name: mod_expr
   seq_len: 15
@@ -46,5 +48,7 @@ train:
   retrieval_cost: 0.01
   diversity_weight: 0.01
   entropy_weight: 0.0
+  polar_weight: 0.0
+  lora_delta_weight: 0.0
   seed: 0
   out_dir: runs/smoke
