@@ -148,9 +148,17 @@ class LoRAReasoningCore(nn.Module):
 
     def __init__(self, cfg, n_layers: int):
         super().__init__()
+        self.state_max_rms = float(getattr(cfg, 'state_max_rms', 0.0) or 0.0)
         self.blocks = nn.ModuleList(
             [LoRAReasoningBlock(cfg) for _ in range(n_layers)]
         )
+
+    def _limit_state(self, z):
+        if self.state_max_rms <= 0:
+            return z
+        rms = z.float().pow(2).mean(dim=-1, keepdim=True).sqrt().clamp_min(1e-6)
+        scale = torch.clamp(self.state_max_rms / rms, max=1.0).to(dtype=z.dtype)
+        return z * scale
 
     def forward(self, z, injection=None, lora_list=None, gate_list=None):
         """
@@ -160,10 +168,12 @@ class LoRAReasoningCore(nn.Module):
         """
         if injection is not None:
             z = z + injection
+            z = self._limit_state(z)
         for i, block in enumerate(self.blocks):
             lora = lora_list[i] if lora_list is not None else None
             gate = gate_list[i] if gate_list is not None else None
             z    = block(z, lora=lora, gate=gate)
+            z    = self._limit_state(z)
         return z
 
 
@@ -237,6 +247,24 @@ class LoRAHyperNet(nn.Module):
         self.r  = r
         self.d  = d
         self.ff_d = ff_d
+        self.base_scale = float(getattr(cfg, 'lora_scale', 0.05))
+        self.max_delta = float(getattr(cfg, 'lora_max', 0.1))
+        self.register_buffer('runtime_scale', torch.tensor(self.base_scale), persistent=False)
+
+    def set_runtime_step(self, step: int, train_cfg=None):
+        train_cfg = train_cfg or {}
+        scale = float(train_cfg.get('lora_scale', self.base_scale))
+        warmup = int(train_cfg.get('lora_warmup_steps') or 0)
+        if warmup > 0:
+            scale *= min(1.0, max(0.0, float(step + 1) / float(warmup)))
+        self.runtime_scale.fill_(scale)
+
+    def _stabilize(self, delta):
+        scale = self.runtime_scale.to(device=delta.device, dtype=delta.dtype)
+        max_delta = float(self.max_delta)
+        if max_delta > 0:
+            delta = torch.tanh(delta / max_delta) * max_delta
+        return delta * scale
 
     def forward(self, context: torch.Tensor):
         """
@@ -254,14 +282,14 @@ class LoRAHyperNet(nn.Module):
             dW_up = torch.einsum('or,bri->boi', self.b_up[i], A_up)
             # ΔW_dn = B_dn [d, r]   @ A_dn [r, ff_d] →  [B, d, ff_d]
             dW_dn = torch.einsum('or,bri->boi', self.b_dn[i], A_dn)
-            out.append((dW_up, dW_dn))
+            out.append((self._stabilize(dW_up), self._stabilize(dW_dn)))
         return out
 
 
 def lora_delta_norm(adapters) -> torch.Tensor:
     """Mean squared generated LoRA delta, used as a gentle stability cost."""
     if not adapters:
-        raise ValueError('adapters must be a non-empty list')
+        return torch.tensor(0.0)
     terms = []
     for dW_up, dW_dn in adapters:
         terms.append(dW_up.pow(2).mean())
@@ -287,22 +315,21 @@ class LoRAPISynthesizer(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         d = cfg.d_model
-        self.in_proj = nn.Linear(4 * d, d)
+        self.in_proj = nn.Linear(3 * d, d)
         self.core    = LoRAReasoningCore(cfg, cfg.pi_layers)
         self.out     = nn.Sequential(
             nn.LayerNorm(d),
             nn.Linear(d, d),
         )
 
-    def forward(self, state, xs, explorer_summary, libvec,
-                lora_list=None, gate_list=None):
+    def forward(self, state, xs, explorer_summary, lora_list=None, gate_list=None):
         """
-        state, xs, explorer_summary, libvec : [B, d]
-        lora_list / gate_list               : passed through to LoRAReasoningCore
+        state, xs, explorer_summary : [B, d]
+        lora_list / gate_list       : passed through to LoRAReasoningCore
         Returns updated state [B, d].
         """
         z = self.in_proj(
-            torch.cat([state, xs, explorer_summary, libvec], dim=-1)
+            torch.cat([state, xs, explorer_summary], dim=-1)
         ).unsqueeze(1)                               # [B, 1, d]
         z = self.core(z, lora_list=lora_list, gate_list=gate_list)   # [B, 1, d]
         return state + self.out(z.squeeze(1))        # [B, d]

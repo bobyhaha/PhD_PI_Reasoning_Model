@@ -4,7 +4,7 @@ Compares same-parameter versions of:
 - `transformer`: standard Transformer encoder
 - `hrm`: EqR/HRM-style high/low recurrent token-latent model
 - `trm`: EqR-style single recurrent token-latent core
-- `lg_prm`: your library-gated PI-PhD model with separate RAG and MLP libraries
+- `lg_prm`: pure PhD explorer bank plus PI synthesizer
 
 Meta-model variants are available for HRM, TRM, and LG-PRM:
 - V1 / PoLar-style program-of-layers: `hrm_v1`, `trm_v1`, `lg_prm_v1`
@@ -20,9 +20,7 @@ decides how executed slots are adapted.
 Training objective for meta variants:
 ```text
 loss = prediction_loss
-     + retrieval_cost * library_gate_usage
      + diversity_weight * explorer_diversity
-     - entropy_weight * library_entropy
      + polar_weight * polar_usage
      + lora_delta_weight * lora_delta_norm
 ```

@@ -23,19 +23,21 @@ class ModelConfig:
     n_explorers: int = 8
     d_explorer_mult: float = 0.5
     pi_layers: int = 2
-    library_size: int = 128
-    rag_library_size: int = 128
-    mlp_library_mult: int = 4
     lg_steps: int = 4
-    use_library: bool = True
-    forced_library: bool = False
-    hard_library_gate: bool = False
-    gate_threshold: float = 0.5
-    straight_through_gate: bool = True
     use_diversity_loss: bool = True
+    phd_lambda: float = 0.95
+    phd_noise_scale: float = 0.0
+    init_std: float = 1.0
+    state_max_rms: float = 0.0
+    mlp_t: bool = False
+    eqr_halt_max_steps: int = 16
+    halt_exploration_prob: float = 0.1
+    q_halt_weight: float = 0.5
     # Meta-model hyper-params (V1 / V2 / V3 variants)
     lora_rank: int = 2
     meta_d_code: int = 32
+    lora_scale: float = 0.05
+    lora_max: float = 0.1
 
 class TokenEncoder(nn.Module):
     def __init__(self, cfg):
@@ -87,12 +89,21 @@ class TokenReasoningBlock(nn.Module):
 class TokenReasoningCore(nn.Module):
     def __init__(self, cfg, n_layers):
         super().__init__()
+        self.state_max_rms = float(getattr(cfg, 'state_max_rms', 0.0) or 0.0)
         self.blocks = nn.ModuleList([TokenReasoningBlock(cfg) for _ in range(n_layers)])
+    def _limit_state(self, z):
+        if self.state_max_rms <= 0:
+            return z
+        rms = z.float().pow(2).mean(dim=-1, keepdim=True).sqrt().clamp_min(1e-6)
+        scale = torch.clamp(self.state_max_rms / rms, max=1.0).to(dtype=z.dtype)
+        return z * scale
     def forward(self, z, injection=None):
         if injection is not None:
             z = z + injection
+            z = self._limit_state(z)
         for block in self.blocks:
             z = block(z)
+            z = self._limit_state(z)
         return z
 
 def count_parameters(model):

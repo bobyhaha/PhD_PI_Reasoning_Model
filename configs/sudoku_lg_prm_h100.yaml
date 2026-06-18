@@ -8,25 +8,26 @@ model:
   dropout: 0.1
   n_layers: 4
   dim_ff_mult: 4
-  h_cycles: 2
-  l_cycles: 4
-  h_layers: 1
-  l_layers: 1
-  trm_steps: 8
+  h_cycles: 3
+  l_cycles: 6
+  h_layers: 0
+  l_layers: 2
+  trm_steps: 4
   trm_layers: 2
   n_explorers: 6
   d_explorer_mult: 0.5
   pi_layers: 2
-  library_size: 256
-  rag_library_size: 256
-  mlp_library_mult: 4
   lg_steps: 4
-  use_library: true
-  forced_library: false
-  hard_library_gate: true
-  gate_threshold: 0.5
-  straight_through_gate: true
   use_diversity_loss: true
+  mlp_t: true
+  phd_lambda: 0.95
+  phd_noise_scale: 0.01
+  init_std: 1.0
+  eqr_halt_max_steps: 16
+  halt_exploration_prob: 0.1
+  q_halt_weight: 0.5
+  lora_scale: 0.05
+  lora_max: 0.1
 task:
   task_name: puzzle_npy
   seq_len: 81
@@ -38,18 +39,35 @@ task:
   dataset_path: data/sudoku-extreme-1k-aug-1000
   puzzle_set: all
 train:
-  batch_size: 2048
-  epochs: 20
-  lr: 0.0003
-  weight_decay: 0.01
+  batch_size: 768
+  epochs: 50000
+  lr: 0.0001
+  weight_decay: 1.0
   grad_clip: 1.0
-  retrieval_cost: 0.01
   diversity_weight: 0.01
-  entropy_weight: 0.0
   seed: 0
   device: cuda
   amp: true
   amp_dtype: bfloat16
+  loss_type: stablemax_cross_entropy
+  q_halt_weight: 0.5
+  lr_warmup_steps: 2000
+  lr_min_ratio: 1.0
+  beta1: 0.9
+  beta2: 0.95
+  ema: true
+  ema_rate: 0.999
+  train_depth: 16
+  train_init_noise_std: 1.0
+  train_noise_scale: 0.01
+  train_grad_last_only: true
+  eval_grid: 1x1,4x1,16x1,64x1,64x8,64x32,64x128
+  eval_residual_window: 3
+  eval_init_noise_std: 1.0
+  eval_noise_scale: 0.5
+  convergence_top_k: 4
+  lora_scale: 0.05
+  lora_warmup_steps: 2000
   allow_tf32: true
   float32_matmul_precision: high
   compile: false

@@ -6,9 +6,21 @@ __pycache__/
 data/
 downloads/
 runs/
+logs/
+modal_results/
+summaries/
+outputs/
+wandb/
 *.pt
 *.pth
 *.ckpt
+*.safetensors
+*.npy
+*.npz
+*.tar
+*.tar.gz
+*.zip
+*.jsonl
 
 # Local plots and scratch outputs.
 comparison.png

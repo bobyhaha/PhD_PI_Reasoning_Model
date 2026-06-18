@@ -12,9 +12,24 @@ def load_base(path):
 def variant_cfg(base, mt):
     c = replace(base, model_type=mt)
     if mt == 'transformer': return replace(c, n_layers=4)
-    if mt == 'hrm': return replace(c, h_cycles=2, l_cycles=4, h_layers=1, l_layers=1)
-    if mt == 'trm': return replace(c, trm_steps=8, trm_layers=2)
-    if mt == 'lg_prm': return replace(c, lg_steps=4, n_explorers=8, pi_layers=2, use_library=True, forced_library=False, hard_library_gate=True)
+    if mt == 'eqr':
+        return replace(
+            c,
+            h_cycles=3,
+            l_cycles=6,
+            h_layers=0,
+            l_layers=2,
+            mlp_t=True,
+            phd_lambda=0.95,
+            phd_noise_scale=0.01,
+            init_std=1.0,
+            eqr_halt_max_steps=16,
+            halt_exploration_prob=0.1,
+            q_halt_weight=0.5,
+        )
+    if mt == 'hrm': return replace(c, h_cycles=2, l_cycles=3, h_layers=1, l_layers=1)
+    if mt == 'trm': return replace(c, trm_steps=4, trm_layers=2)
+    if mt == 'lg_prm': return replace(c, lg_steps=4, n_explorers=8, pi_layers=2)
     raise ValueError(mt)
 
 def main():
@@ -22,7 +37,7 @@ def main():
     ap.add_argument('--base_config', default='configs/base.yaml')
     ap.add_argument('--target_params', type=int, default=250000)
     ap.add_argument('--epochs', type=int)
-    ap.add_argument('--models', nargs='+', default=['transformer', 'hrm', 'trm', 'lg_prm'])
+    ap.add_argument('--models', nargs='+', default=['transformer', 'eqr', 'hrm', 'trm', 'lg_prm'])
     ap.add_argument('--out_root', default='runs/compare')
     args = ap.parse_args()
     base, task, train = load_base(args.base_config)

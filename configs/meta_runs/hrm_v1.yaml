@@ -17,15 +17,7 @@ model:
   n_explorers: 8
   d_explorer_mult: 0.5
   pi_layers: 2
-  library_size: 128
-  rag_library_size: 128
-  mlp_library_mult: 4
   lg_steps: 4
-  use_library: true
-  forced_library: false
-  hard_library_gate: true
-  gate_threshold: 0.5
-  straight_through_gate: true
   use_diversity_loss: true
   lora_rank: 2
   meta_d_code: 32
@@ -45,9 +37,7 @@ train:
   lr: 0.0003
   weight_decay: 0.01
   grad_clip: 1.0
-  retrieval_cost: 0.01
   diversity_weight: 0.01
-  entropy_weight: 0.0
   polar_weight: 0.0
   lora_delta_weight: 1.0e-05
   seed: 0

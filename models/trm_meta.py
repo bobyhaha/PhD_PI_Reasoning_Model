@@ -76,6 +76,45 @@ class TRM_V1(nn.Module):
             'polar_usage'  : all_gates.mean(),
         }
 
+    def forward_depth(self, x, eval_depth=1, init_noise_std=0.0, noise_scale=None, grad_last_only=False, residual_window=0):
+        del noise_scale
+        xs = self.encoder(x)
+        z = self.init.expand(xs.shape[0], xs.shape[1], -1)
+        if init_noise_std and init_noise_std > 0:
+            z = z + torch.randn_like(z) * float(init_noise_std)
+        xs_pooled = xs.mean(dim=1)
+        all_gates = self.polar(xs_pooled)
+        T, nb = self.cfg.trm_steps, self.cfg.trm_layers
+        total_steps = max(1, int(eval_depth)) * max(1, int(T))
+        residual_window = max(0, int(residual_window or 0))
+        residuals = []
+        start_t = 0
+        if grad_last_only and total_steps > 1:
+            with torch.no_grad():
+                for t in range(total_steps - 1):
+                    slot = t % T
+                    seg = all_gates[:, slot * nb : (slot + 1) * nb]
+                    z = self.core(z, xs, gate_list=[seg[:, b] for b in range(nb)])
+            start_t = total_steps - 1
+        for t in range(start_t, total_steps):
+            slot = t % T
+            seg = all_gates[:, slot * nb : (slot + 1) * nb]
+            prev = z
+            z = self.core(z, xs, gate_list=[seg[:, b] for b in range(nb)])
+            if residual_window:
+                residuals.append((z - prev).pow(2).mean(dim=(1, 2)))
+        token_logits = self.head(z)
+        out = {
+            'logits': token_logits[:, 0],
+            'token_logits': token_logits,
+            'token_state': z,
+            'polar_gates': all_gates,
+            'polar_usage': all_gates.mean(),
+        }
+        if residuals:
+            out['residual_score'] = torch.stack(residuals[-residual_window:], dim=0).mean(dim=0)
+        return out
+
 
 # ---------------------------------------------------------------------------
 # V2 – LoRA HyperNet
@@ -118,6 +157,44 @@ class TRM_V2(nn.Module):
             'token_state'  : z,
             'lora_delta_norm': torch.stack(lora_norms).mean(),
         }
+
+    def forward_depth(self, x, eval_depth=1, init_noise_std=0.0, noise_scale=None, grad_last_only=False, residual_window=0):
+        del noise_scale
+        xs = self.encoder(x)
+        z = self.init.expand(xs.shape[0], xs.shape[1], -1)
+        if init_noise_std and init_noise_std > 0:
+            z = z + torch.randn_like(z) * float(init_noise_std)
+        xs_pooled = xs.mean(dim=1)
+        lora_norms = []
+        total_steps = max(1, int(eval_depth)) * max(1, int(self.cfg.trm_steps))
+        residual_window = max(0, int(residual_window or 0))
+        residuals = []
+        tracked_steps = 0
+        if grad_last_only and total_steps > 1:
+            with torch.no_grad():
+                for _ in range(total_steps - 1):
+                    context = torch.cat([xs_pooled, z.mean(dim=1)], dim=-1)
+                    adapters = self.hyper(context)
+                    z = self.core(z, xs, lora_list=adapters)
+        for _ in range(1 if grad_last_only and total_steps > 1 else total_steps):
+            context = torch.cat([xs_pooled, z.mean(dim=1)], dim=-1)
+            adapters = self.hyper(context)
+            lora_norms.append(lora_delta_norm(adapters))
+            prev = z
+            z = self.core(z, xs, lora_list=adapters)
+            if residual_window:
+                residuals.append((z - prev).pow(2).mean(dim=(1, 2)))
+            tracked_steps += 1
+        token_logits = self.head(z)
+        out = {
+            'logits': token_logits[:, 0],
+            'token_logits': token_logits,
+            'token_state': z,
+            'lora_delta_norm': torch.stack(lora_norms).mean() if tracked_steps else torch.tensor(0.0, device=x.device),
+        }
+        if residuals:
+            out['residual_score'] = torch.stack(residuals[-residual_window:], dim=0).mean(dim=0)
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -170,3 +247,49 @@ class TRM_V3(nn.Module):
             'polar_usage'  : all_gates.mean(),
             'lora_delta_norm': torch.stack(lora_norms).mean(),
         }
+
+    def forward_depth(self, x, eval_depth=1, init_noise_std=0.0, noise_scale=None, grad_last_only=False, residual_window=0):
+        del noise_scale
+        xs = self.encoder(x)
+        z = self.init.expand(xs.shape[0], xs.shape[1], -1)
+        if init_noise_std and init_noise_std > 0:
+            z = z + torch.randn_like(z) * float(init_noise_std)
+        xs_pooled = xs.mean(dim=1)
+        all_gates = self.polar(xs_pooled)
+        T, nb = self.cfg.trm_steps, self.cfg.trm_layers
+        lora_norms = []
+        total_steps = max(1, int(eval_depth)) * max(1, int(T))
+        residual_window = max(0, int(residual_window or 0))
+        residuals = []
+        start_t = 0
+        if grad_last_only and total_steps > 1:
+            with torch.no_grad():
+                for t in range(total_steps - 1):
+                    context = torch.cat([xs_pooled, z.mean(dim=1)], dim=-1)
+                    adapters = self.hyper(context)
+                    slot = t % T
+                    seg = all_gates[:, slot * nb : (slot + 1) * nb]
+                    z = self.core(z, xs, lora_list=adapters, gate_list=[seg[:, b] for b in range(nb)])
+            start_t = total_steps - 1
+        for t in range(start_t, total_steps):
+            context = torch.cat([xs_pooled, z.mean(dim=1)], dim=-1)
+            adapters = self.hyper(context)
+            lora_norms.append(lora_delta_norm(adapters))
+            slot = t % T
+            seg = all_gates[:, slot * nb : (slot + 1) * nb]
+            prev = z
+            z = self.core(z, xs, lora_list=adapters, gate_list=[seg[:, b] for b in range(nb)])
+            if residual_window:
+                residuals.append((z - prev).pow(2).mean(dim=(1, 2)))
+        token_logits = self.head(z)
+        out = {
+            'logits': token_logits[:, 0],
+            'token_logits': token_logits,
+            'token_state': z,
+            'polar_gates': all_gates,
+            'polar_usage': all_gates.mean(),
+            'lora_delta_norm': torch.stack(lora_norms).mean() if lora_norms else torch.tensor(0.0, device=x.device),
+        }
+        if residuals:
+            out['residual_score'] = torch.stack(residuals[-residual_window:], dim=0).mean(dim=0)
+        return out
