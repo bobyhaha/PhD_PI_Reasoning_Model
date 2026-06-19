@@ -340,6 +340,36 @@ def _lr_for_step(base_lr, step, total_steps, train_cfg):
     cosine = 0.5 * (1.0 + math.cos(math.pi * progress))
     return float(base_lr) * (min_ratio + (1.0 - min_ratio) * cosine)
 
+def _state_model(model):
+    return model._orig_mod if hasattr(model, '_orig_mod') else model
+
+def _save_checkpoint(path, model, opt, scaler, ema, global_step, epoch, last_metrics):
+    tmp_path = f'{path}.tmp'
+    payload = {
+        'model': _state_model(model).state_dict(),
+        'optimizer': opt.state_dict(),
+        'scaler': scaler.state_dict(),
+        'global_step': int(global_step),
+        'epoch': int(epoch),
+        'last_metrics': last_metrics,
+    }
+    if ema is not None:
+        payload['ema'] = {k: v.detach().cpu() for k, v in ema.shadow.items()}
+        payload['ema_decay'] = ema.decay
+    torch.save(payload, tmp_path)
+    os.replace(tmp_path, path)
+
+def _load_checkpoint(path, model, opt, scaler, ema, device):
+    ckpt = torch.load(path, map_location=device)
+    _state_model(model).load_state_dict(ckpt['model'])
+    opt.load_state_dict(ckpt['optimizer'])
+    if 'scaler' in ckpt:
+        scaler.load_state_dict(ckpt['scaler'])
+    if ema is not None and 'ema' in ckpt:
+        ema.shadow = {k: v.to(device=device) for k, v in ckpt['ema'].items()}
+        ema.decay = float(ckpt.get('ema_decay', ema.decay))
+    return int(ckpt.get('global_step', 0)), int(ckpt.get('epoch', 0)), ckpt.get('last_metrics')
+
 @torch.no_grad()
 def evaluate(model, loader, device, train_cfg=None):
     train_cfg = train_cfg or {}
@@ -421,13 +451,19 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
     os.makedirs(out_dir, exist_ok=True)
     json.dump({'model': asdict(model_cfg), 'task': asdict(task_cfg), 'train': train_cfg, 'n_params': n_params}, open(os.path.join(out_dir, 'config_resolved.json'), 'w'), indent=2)
     metrics_path = os.path.join(out_dir, 'metrics.jsonl')
+    checkpoint_path = os.path.join(out_dir, 'checkpoint.pt')
     print(f'model={model_cfg.model_type} params={n_params:,} device={device}')
     global_step = 0
     max_steps = train_cfg.get('max_steps')
     total_steps = int(max_steps or (train_cfg.get('epochs', 10) * max(1, len(train_loader))))
     eval_interval_steps = train_cfg.get('eval_interval_steps')
     last_metrics = None
-    for epoch in range(train_cfg.get('epochs', 10)):
+    start_epoch = 0
+    if train_cfg.get('resume', True) and os.path.exists(checkpoint_path):
+        global_step, start_epoch, last_metrics = _load_checkpoint(checkpoint_path, model, opt, scaler, ema, device)
+        print(f'resumed checkpoint from {checkpoint_path} at step={global_step} epoch={start_epoch}')
+    checkpoint_interval_steps = train_cfg.get('checkpoint_interval_steps', eval_interval_steps)
+    for epoch in range(start_epoch, train_cfg.get('epochs', 10)):
         model.train(); pbar = tqdm(train_loader, desc=f'{model_cfg.model_type} epoch {epoch}')
         for x, y in pbar:
             if max_steps is not None and global_step >= max_steps:
@@ -470,7 +506,10 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
                 print(metrics)
                 with open(metrics_path, 'a') as f: f.write(json.dumps(metrics) + '\n')
                 last_metrics = metrics
+                _save_checkpoint(checkpoint_path, model, opt, scaler, ema, global_step, epoch, last_metrics)
                 model.train()
+            elif checkpoint_interval_steps and global_step % int(checkpoint_interval_steps) == 0:
+                _save_checkpoint(checkpoint_path, model, opt, scaler, ema, global_step, epoch, last_metrics)
         if max_steps is not None and global_step >= max_steps:
             break
         if not eval_interval_steps:
@@ -482,6 +521,7 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
             print(metrics)
             with open(metrics_path, 'a') as f: f.write(json.dumps(metrics) + '\n')
             last_metrics = metrics
+            _save_checkpoint(checkpoint_path, model, opt, scaler, ema, global_step, epoch, last_metrics)
     backup = ema.apply_to(model) if ema is not None else None
     metrics = evaluate(model, val_loader, device, train_cfg)
     if ema is not None:
@@ -490,7 +530,8 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
     if last_metrics is None or last_metrics.get('step') != global_step:
         print(metrics)
         with open(metrics_path, 'a') as f: f.write(json.dumps(metrics) + '\n')
-    model_to_save = model._orig_mod if hasattr(model, '_orig_mod') else model
+    _save_checkpoint(checkpoint_path, model, opt, scaler, ema, global_step, epoch, metrics)
+    model_to_save = _state_model(model)
     torch.save(model_to_save.state_dict(), os.path.join(out_dir, 'model.pt'))
     return metrics
 
