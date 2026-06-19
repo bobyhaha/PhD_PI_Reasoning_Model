@@ -69,6 +69,7 @@ def _run_worker(
     max_width,
     max_steps,
     eval_interval_steps,
+    progress_log_steps,
     batch_size,
     lr,
     weight_decay,
@@ -132,6 +133,8 @@ def _run_worker(
             cmd.extend(["--max_steps", str(max_steps)])
         if eval_interval_steps is not None:
             cmd.extend(["--eval_interval_steps", str(eval_interval_steps)])
+        if progress_log_steps is not None:
+            cmd.extend(["--progress_log_steps", str(progress_log_steps)])
         if batch_size is not None:
             cmd.extend(["--batch_size", str(batch_size)])
         if lr is not None:
@@ -191,14 +194,21 @@ def _run_worker(
 
         print(f"[gpu {gpu_id}] starting {model_type}: {' '.join(cmd)}", flush=True)
         with open(log_path, "w") as log_file:
-            proc = subprocess.run(
+            proc = subprocess.Popen(
                 cmd,
                 cwd=PROJECT_ROOT,
                 env=env,
-                stdout=log_file,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                bufsize=1,
             )
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                log_file.write(line)
+                log_file.flush()
+                print(f"[gpu {gpu_id}][{model_type}] {line}", end="", flush=True)
+            proc.wait()
         if proc.returncode != 0:
             raise RuntimeError(f"{model_type} failed on GPU {gpu_id}; see {log_path}")
 
@@ -227,6 +237,7 @@ def run_compare(
     max_width: int = 512,
     max_steps: int | None = None,
     eval_interval_steps: int | None = None,
+    progress_log_steps: int | None = None,
     batch_size: int | None = None,
     lr: float | None = None,
     weight_decay: float | None = None,
@@ -285,6 +296,7 @@ def run_compare(
                 max_width,
                 max_steps,
                 eval_interval_steps,
+                progress_log_steps,
                 batch_size,
                 lr,
                 weight_decay,
@@ -344,6 +356,7 @@ def run_compare_1gpu(
     max_width: int = 512,
     max_steps: int | None = None,
     eval_interval_steps: int | None = None,
+    progress_log_steps: int | None = None,
     batch_size: int | None = None,
     lr: float | None = None,
     weight_decay: float | None = None,
@@ -390,6 +403,7 @@ def run_compare_1gpu(
         max_width,
         max_steps,
         eval_interval_steps,
+        progress_log_steps,
         batch_size,
         lr,
         weight_decay,
@@ -440,6 +454,7 @@ def main(
     max_width: int = 512,
     max_steps: int | None = None,
     eval_interval_steps: int | None = None,
+    progress_log_steps: int | None = None,
     batch_size: int | None = None,
     lr: float | None = None,
     weight_decay: float | None = None,
@@ -480,6 +495,7 @@ def main(
         max_width=max_width,
         max_steps=max_steps,
         eval_interval_steps=eval_interval_steps,
+        progress_log_steps=progress_log_steps,
         batch_size=batch_size,
         lr=lr,
         weight_decay=weight_decay,

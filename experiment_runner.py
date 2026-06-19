@@ -92,6 +92,7 @@ def run_one(
     seed=None,
     max_steps=None,
     eval_interval_steps=None,
+    progress_log_steps=None,
     batch_size=None,
     lr=None,
     weight_decay=None,
@@ -149,6 +150,8 @@ def run_one(
         train_cfg["max_steps"] = max_steps
     if eval_interval_steps is not None:
         train_cfg["eval_interval_steps"] = eval_interval_steps
+    if progress_log_steps is not None:
+        train_cfg["progress_log_steps"] = progress_log_steps
     if batch_size is not None:
         train_cfg["batch_size"] = batch_size
     if lr is not None:
@@ -217,6 +220,7 @@ def run_one(
         "epochs": epochs,
         "max_steps": max_steps,
         "eval_interval_steps": eval_interval_steps,
+        "progress_log_steps": train_cfg.get("progress_log_steps"),
         "batch_size": train_cfg.get("batch_size"),
         "lr": train_cfg.get("lr"),
         "weight_decay": train_cfg.get("weight_decay"),
@@ -271,6 +275,7 @@ def main():
     parser.add_argument("--seed", type=int)
     parser.add_argument("--max_steps", type=int)
     parser.add_argument("--eval_interval_steps", type=int)
+    parser.add_argument("--progress_log_steps", type=int)
     parser.add_argument("--batch_size", type=int)
     parser.add_argument("--lr", type=float)
     parser.add_argument("--weight_decay", type=float)
@@ -314,6 +319,7 @@ def main():
         seed=args.seed,
         max_steps=args.max_steps,
         eval_interval_steps=args.eval_interval_steps,
+        progress_log_steps=args.progress_log_steps,
         batch_size=args.batch_size,
         lr=args.lr,
         weight_decay=args.weight_decay,

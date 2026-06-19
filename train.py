@@ -457,6 +457,7 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
     max_steps = train_cfg.get('max_steps')
     total_steps = int(max_steps or (train_cfg.get('epochs', 10) * max(1, len(train_loader))))
     eval_interval_steps = train_cfg.get('eval_interval_steps')
+    progress_log_steps = int(train_cfg.get('progress_log_steps') or 100)
     last_metrics = None
     start_epoch = 0
     if train_cfg.get('resume', True) and os.path.exists(checkpoint_path):
@@ -497,6 +498,18 @@ def train_from_config(model_cfg, task_cfg, train_cfg):
             if 'q_halt_loss' in loss_parts:
                 postfix['q'] = f"{loss_parts['q_halt_loss'].item():.3f}"
             pbar.set_postfix(postfix)
+            if progress_log_steps > 0 and (global_step == 1 or global_step % progress_log_steps == 0):
+                extra = ''
+                if 'lora_delta_norm' in out:
+                    extra += f" lora_delta_norm={float(out['lora_delta_norm'].detach().float().cpu()):.6g}"
+                if 'q_halt_loss' in loss_parts:
+                    extra += f" q_halt_loss={float(loss_parts['q_halt_loss'].detach().float().cpu()):.6g}"
+                print(
+                    f"[progress] model={model_cfg.model_type} epoch={epoch} "
+                    f"step={global_step}/{total_steps} loss={float(loss.detach().float().cpu()):.6g} "
+                    f"task_loss={float(task_loss.detach().float().cpu()):.6g} lr={lr_this_step:.6g}{extra}",
+                    flush=True,
+                )
             if eval_interval_steps and global_step % eval_interval_steps == 0:
                 backup = ema.apply_to(model) if ema is not None else None
                 metrics = evaluate(model, val_loader, device, train_cfg)
